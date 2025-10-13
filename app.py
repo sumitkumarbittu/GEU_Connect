@@ -28,19 +28,6 @@ from flask_cors import CORS
 CORS(app, supports_credentials=True)
 
 def get_db_connection():
-    # Try local database first (for development)
-    try:
-        conn = psycopg2.connect(
-            host=os.environ.get('DB_HOST', 'localhost'),
-            database=os.environ.get('DB_NAME', 'postgres'),
-            user=os.environ.get('DB_USER', 'postgres'),
-            password=os.environ.get('DB_PASSWORD', 'postgres'),
-            port=os.environ.get('DB_PORT', '5432')
-        )
-        return conn
-    except Exception as e:
-        print(f"Local database connection failed: {e}")
-    
     # Fallback to Render's internal database URL if local fails
     internal_db_url = os.environ.get('INTERNAL_DATABASE_URL')
     if internal_db_url:
