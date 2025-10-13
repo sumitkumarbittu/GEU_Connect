@@ -208,7 +208,6 @@ def login():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-        
     finally:
         if 'conn' in locals():
             cur.close()
@@ -217,13 +216,17 @@ def login():
 @app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
-    return jsonify({'message': 'Logged out successfully'})
+    return jsonify({'message': 'Logout successful'})
 
-# Add more API endpoints as needed...
-
-# Initialize database when starting the app
-init_db_if_needed()
+# Initialize database when starting the app in production
+if os.environ.get('FLASK_ENV') == 'production':
+    with app.app_context():
+        try:
+            init_db_if_needed()
+        except Exception as e:
+            print(f"Failed to initialize database: {e}")
+            # Don't crash the app, just log the error
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port)
