@@ -4,116 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GEU Academic Connect</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        .container {
-            width: 80%;
-            margin: auto;
-            overflow: hidden;
-            padding: 20px;
-        }
-        .navbar {
-            background: #35424a;
-            color: #ffffff;
-            padding: 10px 0;
-        }
-        .navbar .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .navbar a {
-            color: #ffffff;
-            text-decoration: none;
-            margin-left: 20px;
-        }
-        .content {
-            background: #ffffff;
-            padding: 20px;
-            margin-top: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .btn {
-            display: inline-block;
-            background: #35424a;
-            color: #ffffff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .btn:hover {
-            background: #e8491d;
-        }
-        .flashes {
-            list-style: none;
-            padding: 0;
-        }
-        .flashes li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-        }
-        .flashes .success {
-            background: #d4edda;
-            color: #155724;
-        }
-        .flashes .error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .page {
-            display: none;
-        }
-        .page.active {
-            display: block;
-        }
-        .slots-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .slot-card {
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 4px;
-        }
-    </style>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="/static/styles.css" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="#" onclick="showPage('home')" class="brand">GEU Academic Connect</a>
+            <a href="#" onclick="showPage('home')" class="brand">
+                <i class="fas fa-graduation-cap"></i> GEU Academic Connect
+            </a>
             <div class="nav-links">
-                <a href="#" onclick="showPage('login')" id="login-link">Login</a>
-                <a href="#" onclick="showPage('register')" id="register-link">Register</a>
-                <a href="#" onclick="showPage('student-dashboard')" id="student-dashboard-link" style="display: none;">Student Dashboard</a>
-                <a href="#" onclick="showPage('teacher-dashboard')" id="teacher-dashboard-link" style="display: none;">Teacher Dashboard</a>
-                <a href="#" onclick="logout()" id="logout-link" style="display: none;">Logout</a>
+                <a href="#" onclick="showPage('home')" class="active">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="#" onclick="showPage('login')" id="login-link">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+                <a href="#" onclick="showPage('register')" id="register-link">
+                    <i class="fas fa-user-plus"></i> Register
+                </a>
+                <a href="#" onclick="logout()" id="logout-link" class="hidden">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
             </div>
         </div>
     </nav>
@@ -121,107 +42,106 @@
     <div class="container">
         <!-- Home Page -->
         <div id="home" class="page active">
-            <div class="content">
-                <h1>Welcome to GEU Academic Connect</h1>
-                <p>Book appointments with your teachers easily and efficiently.</p>
-                <div>
-                    <a href="#" onclick="showPage('login')" class="btn">Login</a>
-                    <a href="#" onclick="showPage('register')" class="btn">Register</a>
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">Welcome to GEU Academic Connect</h1>
+                </div>
+                <div class="card-content">
+                    <p>Book appointments with your teachers easily and efficiently.</p>
+                    
+                    <div id="home-guest" class="hidden">
+                        <p>Please login or register to continue.</p>
+                        <div class="mt-3">
+                            <button onclick="showPage('login')" class="btn btn-primary mr-2">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                            <button onclick="showPage('register')" class="btn btn-secondary">
+                                <i class="fas fa-user-plus"></i> Register
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="home-user" class="hidden">
+                        <div class="alert alert-info">
+                            <i class="fas fa-user-circle"></i> Welcome back, <strong id="user-email"></strong>!
+                        </div>
+                        <div id="user-actions" class="mt-4">
+                            <!-- Dynamic content based on user role -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Login Page -->
         <div id="login" class="page">
-            <div class="content">
-                <h2>Login</h2>
-                <form id="login-form">
-                    <div class="form-group">
-                        <label for="login-email">Email:</label>
-                        <input type="email" id="login-email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="login-password">Password:</label>
-                        <input type="password" id="login-password" required>
-                    </div>
-                    <button type="submit" class="btn">Login</button>
-                </form>
-                <p>Don't have an account? <a href="#" onclick="showPage('register')">Register here</a></p>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Login</h2>
+                </div>
+                <div class="card-content">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="login-email">Email:</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" id="login-email" placeholder="Enter your email" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">Password:</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="login-password" placeholder="Enter your password" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                    </form>
+                    <div id="login-message" class="mt-3"></div>
+                </div>
             </div>
         </div>
 
         <!-- Register Page -->
         <div id="register" class="page">
-            <div class="content">
-                <h2>Register</h2>
-                <form id="register-form">
-                    <div class="form-group">
-                        <label for="register-email">Email:</label>
-                        <input type="email" id="register-email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-password">Password:</label>
-                        <input type="password" id="register-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-role">I am a:</label>
-                        <select id="register-role" required>
-                            <option value="student">Student</option>
-                            <option value="teacher">Teacher</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn">Register</button>
-                </form>
-                <p>Already have an account? <a href="#" onclick="showPage('login')">Login here</a></p>
-            </div>
-        </div>
-
-        <!-- Student Dashboard -->
-        <div id="student-dashboard" class="page">
-            <div class="content">
-                <h2>Student Dashboard</h2>
-                <div id="available-slots">
-                    <h3>Available Slots</h3>
-                    <div class="slots-container" id="available-slots-container">
-                        <!-- Slots will be populated by JavaScript -->
-                    </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Create an Account</h2>
                 </div>
-                <div id="my-appointments">
-                    <h3>My Appointments</h3>
-                    <div class="slots-container" id="my-appointments-container">
-                        <!-- Appointments will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Teacher Dashboard -->
-        <div id="teacher-dashboard" class="page">
-            <div class="content">
-                <h2>Teacher Dashboard</h2>
-                <div>
-                    <h3>Create New Slot</h3>
-                    <form id="create-slot-form">
+                <div class="card-content">
+                    <form id="register-form">
                         <div class="form-group">
-                            <label for="slot-date">Date:</label>
-                            <input type="date" id="slot-date" required>
+                            <label for="register-email">Email:</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" id="register-email" placeholder="Enter your email" required>
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label for="slot-start-time">Start Time:</label>
-                            <input type="time" id="slot-start-time" required>
+                            <label for="register-password">Password:</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="register-password" placeholder="Create a password" required>
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label for="slot-duration">Duration (minutes):</label>
-                            <input type="number" id="slot-duration" min="15" value="30" required>
+                            <label for="register-role">I am a:</label>
+                            <div class="select-wrapper">
+                                <i class="fas fa-user-tag"></i>
+                                <select id="register-role" required>
+                                    <option value="">Select role</option>
+                                    <option value="student">Student</option>
+                                    <option value="teacher">Teacher</option>
+                                </select>
+                            </div>
                         </div>
-                        <button type="submit" class="btn">Create Slot</button>
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-user-plus"></i> Register
+                        </button>
                     </form>
-                </div>
-                <div id="teacher-slots">
-                    <h3>My Slots</h3>
-                    <div class="slots-container" id="teacher-slots-container">
-                        <!-- Teacher's slots will be populated by JavaScript -->
-                    </div>
+                    <div id="register-message" class="mt-3"></div>
                 </div>
             </div>
         </div>
@@ -234,10 +154,14 @@
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
-            // Show the selected page
-            document.getElementById(pageId).classList.add('active');
             
-            // Update navigation based on authentication state
+            // Show the selected page
+            const page = document.getElementById(pageId);
+            if (page) {
+                page.classList.add('active');
+            }
+            
+            // Update navigation
             updateNavigation();
         }
 
@@ -246,139 +170,179 @@
 
         // Update navigation based on authentication state
         function updateNavigation() {
-            const navLinks = document.querySelector('.nav-links');
-            
+            const loginLink = document.getElementById('login-link');
+            const registerLink = document.getElementById('register-link');
+            const logoutLink = document.getElementById('logout-link');
+            const homeGuest = document.getElementById('home-guest');
+            const homeUser = document.getElementById('home-user');
+            const userEmail = document.getElementById('user-email');
+            const userActions = document.getElementById('user-actions');
+
             if (currentUser) {
                 // User is logged in
-                document.getElementById('login-link').style.display = 'none';
-                document.getElementById('register-link').style.display = 'none';
-                document.getElementById('logout-link').style.display = 'inline-block';
+                loginLink.parentElement.style.display = 'none';
+                registerLink.parentElement.style.display = 'none';
+                logoutLink.classList.remove('hidden');
                 
-                // Show appropriate dashboard link based on role
-                if (currentUser.role === 'teacher' || currentUser.role === 'admin') {
-                    document.getElementById('teacher-dashboard-link').style.display = 'inline-block';
-                    document.getElementById('student-dashboard-link').style.display = 'none';
-                } else {
-                    document.getElementById('student-dashboard-link').style.display = 'inline-block';
-                    document.getElementById('teacher-dashboard-link').style.display = 'none';
+                // Update home page for logged-in user
+                if (homeGuest) homeGuest.classList.add('hidden');
+                if (homeUser) {
+                    homeUser.classList.remove('hidden');
+                    if (userEmail) userEmail.textContent = currentUser.email;
+                    
+                    // Update actions based on user role
+                    if (userActions) {
+                        if (currentUser.role === 'teacher') {
+                            userActions.innerHTML = `
+                                <h3><i class="fas fa-chalkboard-teacher"></i> Teacher Dashboard</h3>
+                                <div class="button-group">
+                                    <button onclick="showPage('create-slot')" class="btn btn-primary">
+                                        <i class="fas fa-plus-circle"></i> Create Time Slot
+                                    </button>
+                                    <button onclick="showPage('my-slots')" class="btn btn-secondary">
+                                        <i class="fas fa-calendar-alt"></i> View My Slots
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            userActions.innerHTML = `
+                                <h3><i class="fas fa-user-graduate"></i> Student Dashboard</h3>
+                                <div class="button-group">
+                                    <button onclick="showPage('book-slot')" class="btn btn-primary">
+                                        <i class="fas fa-book"></i> Book a Slot
+                                    </button>
+                                    <button onclick="showPage('my-bookings')" class="btn btn-secondary">
+                                        <i class="fas fa-list"></i> My Bookings
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    }
                 }
-                
-                // Show welcome message
-                navLinks.innerHTML = `
-                    <span style="color: white; margin-right: 15px;">Welcome, ${currentUser.email} (${currentUser.role})</span>
-                    <a href="#" onclick="logout()" id="logout-link">Logout</a>
-                `;
             } else {
                 // User is not logged in
-                document.getElementById('login-link').style.display = 'inline-block';
-                document.getElementById('register-link').style.display = 'inline-block';
-                document.getElementById('student-dashboard-link').style.display = 'none';
-                document.getElementById('teacher-dashboard-link').style.display = 'none';
-                document.getElementById('logout-link').style.display = 'none';
+                loginLink.parentElement.style.display = 'block';
+                registerLink.parentElement.style.display = 'block';
+                logoutLink.classList.add('hidden');
+                
+                // Update home page for guest
+                if (homeGuest) homeGuest.classList.remove('hidden');
+                if (homeUser) homeUser.classList.add('hidden');
             }
         }
 
         // Login form submission
-        document.getElementById('login-form').addEventListener('submit', async function(e) {
+        document.getElementById('login-form')?.addEventListener('submit', async function(e) {
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
-            const loginButton = document.querySelector('#login-form button[type="submit"]');
-            const originalButtonText = loginButton.innerHTML;
-            
-            // Show loading state
-            loginButton.disabled = true;
-            loginButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Signing in...';
+            const messageDiv = document.getElementById('login-message');
             
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email, password }),
-                    credentials: 'same-origin'  // Important for session cookies
+                    body: JSON.stringify({ email, password })
                 });
-
+                
                 const data = await response.json();
-                console.log('Login response:', data);
                 
-                if (!response.ok) {
-                    throw new Error(data.message || 'Login failed');
-                }
-                
-                if (data.success) {
-                    // Store user data in sessionStorage
+                if (response.ok) {
                     currentUser = data.user;
                     sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    
-                    // Show success message
-                    showAlert('Login successful! Redirecting...', 'success');
-                    
-                    // Update UI after a short delay
-                    setTimeout(() => {
-                        updateNavigation();
-                        
-                        // Redirect based on role
-                        if (currentUser.role === 'teacher' || currentUser.role === 'admin') {
-                            showPage('teacher-dashboard');
-                        } else {
-                            showPage('student-dashboard');
-                        }
-                    }, 1000);
+                    showAlert('Login successful!', 'success');
+                    showPage('home');
+                    updateNavigation();
                 } else {
-                    throw new Error(data.message || 'Login failed');
+                    showAlert(data.message || 'Login failed', 'error');
                 }
             } catch (error) {
+                showAlert('An error occurred. Please try again.', 'error');
                 console.error('Login error:', error);
-                showAlert(error.message || 'An error occurred during login. Please try again.', 'danger');
-            } finally {
-                // Reset button state
-                loginButton.disabled = false;
-                loginButton.innerHTML = originalButtonText;
             }
         });
-        
-        // Helper function to show alert messages
+
+        // Register form submission
+        document.getElementById('register-form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const role = document.getElementById('register-role').value;
+            const messageDiv = document.getElementById('register-message');
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password, role })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Registration successful! Please login.', 'success');
+                    showPage('login');
+                    // Pre-fill the login form
+                    document.getElementById('login-email').value = email;
+                } else {
+                    showAlert(data.message || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showAlert('An error occurred. Please try again.', 'error');
+                console.error('Registration error:', error);
+            }
+        });
+
+        // Show alert message
         function showAlert(message, type = 'info') {
             const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.role = 'alert';
+            alertDiv.className = `alert alert-${type} fade-in`;
             alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
                 ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
             
-            const container = document.querySelector('.container');
-            if (container) {
-                container.insertBefore(alertDiv, container.firstChild);
-                
-                // Auto-remove alert after 5 seconds
-                setTimeout(() => {
-                    const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
-                    if (alert) alert.close();
-                }, 5000);
-            } else {
-                alert(message); // Fallback if container not found
-            }
+            // Add to the current page's message container
+            const currentPage = document.querySelector('.page.active');
+            const messageDiv = currentPage.querySelector('#login-message, #register-message') || currentPage;
+            
+            // Clear existing messages
+            const existingAlerts = messageDiv.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            // Add new message
+            messageDiv.prepend(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                alertDiv.classList.add('fade-out');
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 5000);
         }
 
         // Logout function
         function logout() {
-            fetch('/api/logout', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        currentUser = null;
-                        sessionStorage.removeItem('currentUser');
-                        updateNavigation();
-                        showPage('home');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+            fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    sessionStorage.removeItem('currentUser');
+                    currentUser = null;
+                    showPage('home');
+                    updateNavigation();
+                    showAlert('You have been logged out.', 'info');
+                }
+            })
+            .catch(error => {
+                console.error('Logout error:', error);
+            });
         }
 
         // Initialize the page
@@ -387,21 +351,14 @@
             const savedUser = sessionStorage.getItem('currentUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                updateNavigation();
-                // Redirect to appropriate dashboard
-                if (currentUser.role === 'teacher' || currentUser.role === 'admin') {
-                    showPage('teacher-dashboard');
-                } else {
-                    showPage('student-dashboard');
-                }
-            } else {
-                updateNavigation();
-                showPage('home');
             }
+            
+            // Initialize UI
+            updateNavigation();
+            showPage('home');
+            
+            // Add any additional initialization code here
         });
     </script>
-    <script src="app.js"></script>
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

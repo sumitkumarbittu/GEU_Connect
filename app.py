@@ -28,7 +28,7 @@ from flask_cors import CORS
 CORS(app, supports_credentials=True)
 
 def get_db_connection():
-    # Fallback to Render's internal database URL if local fails
+    # Try Render's internal database URL first
     internal_db_url = os.environ.get('INTERNAL_DATABASE_URL')
     if internal_db_url:
         print("Trying to connect to Render's database...")
@@ -36,8 +36,21 @@ def get_db_connection():
             return psycopg2.connect(internal_db_url)
         except Exception as e:
             print(f"Render database connection failed: {e}")
-    
-    raise Exception("Could not connect to any database. Please check your database settings.")
+
+    # Fallback to local test database for development
+    print("Using local test database for development...")
+    import getpass
+    username = getpass.getuser()
+    try:
+        return psycopg2.connect(
+            host='localhost',
+            database='geu_test',
+            user=username,
+            port='5432'
+        )
+    except Exception as e:
+        print(f"Local test database connection failed: {e}")
+        raise Exception("Could not connect to any database. Please check your database settings.")
 
 # Initialize database tables
 def init_db():
@@ -82,8 +95,8 @@ def init_db():
         # Create a default admin user if not exists
         admin_email = 'admin@geu.ac.in'
         admin_password = 'admin123'  # In production, use a strong password and environment variables
-        admin_password_hash = generate_password_hash(admin_password)
-        
+        admin_password_hash = generate_password_hash(admin_password, method='pbkdf2:sha256')
+
         print(f"Ensuring admin user exists: {admin_email}")
         cur.execute("""
             INSERT INTO users (email, password_hash, role) 
@@ -165,7 +178,7 @@ def register():
             return jsonify({'error': 'Email already registered'}), 400
             
         # Hash password and create user
-        password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(password, method='pbkdf2:sha256')
         cur.execute(
             'INSERT INTO users (email, password_hash, role) VALUES (%s, %s, %s) RETURNING id',
             (email, password_hash, role)
@@ -342,10 +355,7 @@ def debug_status():
             'user_count': len(users),
             'users': users,
             'environment': {
-                'db_host': os.environ.get('DB_HOST'),
-                'db_name': os.environ.get('DB_NAME'),
-                'db_user': os.environ.get('DB_USER'),
-                'db_port': os.environ.get('DB_PORT')
+                'internal_db_url': 'configured' if os.environ.get('INTERNAL_DATABASE_URL') else 'not configured'
             }
         })
         
@@ -354,10 +364,7 @@ def debug_status():
             'database_connected': False,
             'error': str(e),
             'environment': {
-                'db_host': os.environ.get('DB_HOST'),
-                'db_name': os.environ.get('DB_NAME'),
-                'db_user': os.environ.get('DB_USER'),
-                'db_port': os.environ.get('DB_PORT')
+                'internal_db_url': 'configured' if os.environ.get('INTERNAL_DATABASE_URL') else 'not configured'
             }
         }), 500
         
