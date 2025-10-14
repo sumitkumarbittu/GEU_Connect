@@ -19,7 +19,7 @@ app.config.update(
     SESSION_COOKIE_SECURE=False,  # Set to True in production with HTTPS
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
-    PERMANENT_SESSION_LIFETIME=timedelta(days=1),
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=1),  # Shorter session lifetime
     SESSION_REFRESH_EACH_REQUEST=True
 )
 
@@ -168,7 +168,8 @@ def serve():
 def get_session():
     """Get current session information"""
     try:
-        if 'user_id' in session:
+        # Check if user_id exists in session
+        if 'user_id' in session and session.get('user_id') is not None:
             return jsonify({
                 'authenticated': True,
                 'user': {
@@ -342,11 +343,39 @@ def login():
 @app.route('/api/logout', methods=['POST'])
 def logout():
     try:
+        # Clear the session completely
         session.clear()
-        return jsonify({
+
+        # Force session invalidation
+        session.modified = True
+        session.permanent = False
+
+        # Also pop the session to ensure it's cleared
+        session.pop('user_id', None)
+        session.pop('email', None)
+        session.pop('role', None)
+
+        # Create a response
+        response = jsonify({
             'success': True,
             'message': 'Logout successful'
         })
+
+        # Try to clear the session cookie
+        try:
+            response.set_cookie(
+                'session',
+                '',
+                expires=0,
+                max_age=0,
+                path='/',
+                httponly=True,
+                samesite='Lax'
+            )
+        except Exception as e:
+            print(f"Warning: Could not clear session cookie: {e}")
+
+        return response
     except Exception as e:
         print(f"Logout error: {str(e)}")
         return jsonify({

@@ -178,22 +178,34 @@
             const userEmail = document.getElementById('user-email');
             const userActions = document.getElementById('user-actions');
 
+            console.log('updateNavigation called, currentUser:', currentUser);
+
             if (currentUser) {
                 // User is logged in
+                console.log('User is logged in, showing logout button');
                 loginLink.parentElement.style.display = 'none';
                 registerLink.parentElement.style.display = 'none';
                 logoutLink.classList.remove('hidden');
-                
+
                 // Update home page for logged-in user
                 if (homeGuest) homeGuest.classList.add('hidden');
                 if (homeUser) {
                     homeUser.classList.remove('hidden');
                     if (userEmail) userEmail.textContent = currentUser.email;
-                    
+
                     // Update actions based on user role
                     if (userActions) {
+                        const logoutButton = `
+                            <div class="mb-3">
+                                <button onclick="logout()" class="btn btn-secondary">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </div>
+                        `;
+
                         if (currentUser.role === 'teacher') {
                             userActions.innerHTML = `
+                                ${logoutButton}
                                 <h3><i class="fas fa-chalkboard-teacher"></i> Teacher Dashboard</h3>
                                 <div class="button-group">
                                     <button onclick="showPage('create-slot')" class="btn btn-primary">
@@ -206,6 +218,7 @@
                             `;
                         } else {
                             userActions.innerHTML = `
+                                ${logoutButton}
                                 <h3><i class="fas fa-user-graduate"></i> Student Dashboard</h3>
                                 <div class="button-group">
                                     <button onclick="showPage('book-slot')" class="btn btn-primary">
@@ -221,10 +234,11 @@
                 }
             } else {
                 // User is not logged in
+                console.log('User is not logged in, hiding logout button');
                 loginLink.parentElement.style.display = 'block';
                 registerLink.parentElement.style.display = 'block';
                 logoutLink.classList.add('hidden');
-                
+
                 // Update home page for guest
                 if (homeGuest) homeGuest.classList.remove('hidden');
                 if (homeUser) homeUser.classList.add('hidden');
@@ -335,15 +349,28 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Clear session storage
                     sessionStorage.removeItem('currentUser');
                     currentUser = null;
-                    showPage('home');
-                    updateNavigation();
+
+                    // Clear any cached data
+                    localStorage.clear();
+
+                    // Force page reload to ensure fresh session
+                    window.location.reload();
+
                     showAlert('You have been logged out.', 'info');
+                } else {
+                    showAlert('Logout failed. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Logout error:', error);
+                // Force logout even if server request fails
+                sessionStorage.removeItem('currentUser');
+                currentUser = null;
+                window.location.reload();
+                showAlert('You have been logged out.', 'info');
             });
         }
 
@@ -353,12 +380,15 @@
             const savedUser = sessionStorage.getItem('currentUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
+                console.log('Loaded user from sessionStorage:', currentUser);
+            } else {
+                console.log('No user found in sessionStorage');
             }
-            
+
             // Initialize UI
             updateNavigation();
             showPage('home');
-            
+
             // Add any additional initialization code here
         });
     </script>
