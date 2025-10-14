@@ -3,7 +3,7 @@ import os
 from functools import wraps
 from dotenv import load_dotenv
 import psycopg2
-from psycopg2 import sql
+import psycopg2.extras
 import traceback
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -28,7 +28,7 @@ from flask_cors import CORS
 CORS(app, supports_credentials=True)
 
 def get_db_connection():
-    # Fallback to Render's internal database URL if local fails
+    # Try Render's internal database URL first
     internal_db_url = os.environ.get('INTERNAL_DATABASE_URL')
     if internal_db_url:
         print("Trying to connect to Render's database...")
@@ -36,8 +36,27 @@ def get_db_connection():
             return psycopg2.connect(internal_db_url)
         except Exception as e:
             print(f"Render database connection failed: {e}")
-    
-    raise Exception("Could not connect to any database. Please check your database settings.")
+
+    # Fall back to standard PostgreSQL connection parameters
+    db_host = os.environ.get('DB_HOST', 'localhost')
+    db_name = os.environ.get('DB_NAME', 'geu_academic_connect')
+    db_user = os.environ.get('DB_USER', 'postgres')
+    db_password = os.environ.get('DB_PASSWORD', '')
+    db_port = os.environ.get('DB_PORT', '5432')
+
+    print(f"Trying to connect to local database: {db_host}:{db_port}/{db_name}")
+
+    try:
+        return psycopg2.connect(
+            host=db_host,
+            database=db_name,
+            user=db_user,
+            password=db_password,
+            port=db_port
+        )
+    except Exception as e:
+        print(f"Local database connection failed: {e}")
+        raise Exception("Could not connect to any database. Please check your database settings.")
 
 # Initialize database tables
 def init_db():
@@ -341,7 +360,7 @@ def debug_status():
     try:
         # Test database connection
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Check if users table exists
         cur.execute("""
