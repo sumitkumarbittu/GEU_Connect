@@ -1,18 +1,12 @@
-# Standard library imports
+from flask import Flask, send_from_directory, jsonify, request, session, url_for, g, redirect, render_template
 import os
-import traceback
-from datetime import datetime, timedelta
 from functools import wraps
-
-# Third-party imports
 from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
-from flask import (
-    Flask, g, jsonify, redirect, render_template, request,
-    send_from_directory, session, url_for
-)
-from werkzeug.security import check_password_hash, generate_password_hash
+import traceback
+from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +36,7 @@ def get_db_connection():
             return psycopg2.connect(internal_db_url)
         except Exception as e:
             print(f"Render database connection failed: {e}")
+    
     # Fall back to standard PostgreSQL connection parameters
     db_host = os.environ.get('DB_HOST', 'localhost')
     db_name = os.environ.get('DB_NAME', 'geu_academic_connect')
@@ -70,7 +65,7 @@ def init_db():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-
+        
         print("Creating tables if they don't exist...")
         # Create tables if they don't exist
         cur.execute("""
@@ -102,12 +97,12 @@ def init_db():
                 UNIQUE(slot_id, student_id)
             );
         """)
-
+        
         # Create a default admin user if not exists
         admin_email = 'admin@geu.ac.in'
         admin_password = 'admin123'  # In production, use a strong password and environment variables
         admin_password_hash = generate_password_hash(admin_password)
-
+        
         print(f"Ensuring admin user exists: {admin_email}")
         cur.execute("""
             INSERT INTO users (email, password_hash, role) 
@@ -116,14 +111,14 @@ def init_db():
             SET password_hash = EXCLUDED.password_hash
             RETURNING id, email, role
         """, (admin_email, admin_password_hash))
-
+        
         result = cur.fetchone()
         if result:
             print(f"Admin user: {result}")
-
+        
         conn.commit()
         print("Database initialized successfully")
-
+        
     except Exception as e:
         print("\n!!! Error initializing database !!!")
         print(f"Type: {type(e).__name__}")
@@ -143,10 +138,10 @@ def init_db_if_needed():
         # Just try to connect to see if database is accessible
         conn = get_db_connection()
         conn.close()
-
+        
         # If connection successful, initialize the database
         init_db()
-
+        
     except Exception as e:
         print(f"Error initializing database: {e}")
         raise
@@ -193,25 +188,26 @@ def get_session():
             'authenticated': False,
             'error': str(e)
         }), 500
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
     role = data.get('role')
-
+    
     if not all([email, password, role]):
         return jsonify({'error': 'Missing required fields'}), 400
-
+        
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-
+        
         # Check if user already exists
         cur.execute('SELECT id FROM users WHERE email = %s', (email,))
         if cur.fetchone() is not None:
             return jsonify({'error': 'Email already registered'}), 400
-
+            
         # Hash password and create user
         password_hash = generate_password_hash(password)
         cur.execute(
@@ -220,12 +216,12 @@ def register():
         )
         user_id = cur.fetchone()[0]
         conn.commit()
-
+        
         # Log the user in
         session['user_id'] = user_id
         session['email'] = email
         session['role'] = role
-
+        
         return jsonify({
             'message': 'Registration successful',
             'user': {
@@ -234,11 +230,11 @@ def register():
                 'role': role
             }
         }), 201
-
+        
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500
-
+        
     finally:
         if 'conn' in locals():
             cur.close()
@@ -249,27 +245,27 @@ def login():
     print("\n=== Login Attempt ===")
     print(f"Request Headers: {dict(request.headers)}")
     print(f"Request Data: {request.get_data(as_text=True)}")
-
+    
     if not request.is_json:
         print("Error: Request is not JSON")
         return jsonify({'success': False, 'message': 'Missing JSON in request'}), 400
-
+        
     data = request.get_json()
     email = data.get('email', '').strip().lower()
     password = data.get('password', '')
-
+    
     print(f"Attempting login for email: {email}")
-
+    
     if not all([email, password]):
         print("Error: Missing email or password")
         return jsonify({'success': False, 'message': 'Email and password are required'}), 400
-
+    
     conn = None
     cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
+        
         # Get user by email with role information
         print("Querying database for user...")
         cur.execute('''
@@ -277,34 +273,34 @@ def login():
             FROM users 
             WHERE LOWER(email) = %s
         ''', (email,))
-
+        
         user = cur.fetchone()
         print(f"User found: {user is not None}")
-
+        
         if user is None:
             print(f"No user found with email: {email}")
             return jsonify({
                 'success': False, 
                 'message': 'Invalid email or password'  # Generic message for security
             }), 401
-
+            
         # Verify password
         password_matches = check_password_hash(user['password_hash'], password)
         print(f"Password matches: {password_matches}")
-
+        
         if not password_matches:
             print(f"Incorrect password for user: {email}")
             return jsonify({
                 'success': False, 
                 'message': 'Invalid email or password'  # Generic message for security
             }), 401
-
+            
         # Set session data
         session.permanent = True
         session['user_id'] = user['id']
         session['email'] = user['email']
         session['role'] = user['role']
-
+        
         # Create response data
         response_data = {
             'success': True,
@@ -315,34 +311,34 @@ def login():
                 'role': user['role']
             }
         }
-
+        
         print(f"Session data set: {dict(session)}")
         print(f"Sending response: {response_data}")
-
+        
         # Create response with CORS headers
         response = jsonify(response_data)
         response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
         response.headers.add('Access-Control-Allow-Credentials', 'true')
-
-    return response
-
+        
+        return response
+        
     except Exception as e:
         print(f"\n!!! Login Error !!!")
         print(f"Type: {type(e).__name__}")
         print(f"Error: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
-
+        
         return jsonify({
             'success': False,
             'message': 'An error occurred during login. Please try again.'
         }), 500
-
+        
     finally:
         if cur is not None:
             cur.close()
         if conn is not None:
             conn.close()
-
+            
     print("=== Login Process Complete ===\n")
 
 @app.route('/api/logout', methods=['POST'])
@@ -380,7 +376,7 @@ def logout():
         except Exception as e:
             print(f"Warning: Could not clear session cookie: {e}")
 
-    return response
+        return response
 
 @app.route('/api/slots', methods=['POST'])
 def create_slot():
@@ -395,6 +391,8 @@ def create_slot():
     if not start_time or not end_time:
         return jsonify({'error': 'Start time and end time are required'}), 400
 
+    conn = None
+    cur = None
     try:
         start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
         end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
@@ -418,32 +416,27 @@ def create_slot():
             return jsonify({'error': 'Time slot conflicts with existing slot'}), 400
 
         # Create the slot
-        try:
-            cur.execute(
-                'INSERT INTO slots (teacher_id, start_time, end_time) VALUES (%s, %s, %s) RETURNING id',
-                (g.user['id'], start_dt, end_dt)
-            )
-            slot_id = cur.fetchone()[0]
-            conn.commit()
+        cur.execute(
+            'INSERT INTO slots (teacher_id, start_time, end_time) VALUES (%s, %s, %s) RETURNING id',
+            (g.user['id'], start_dt, end_dt)
+        )
+        slot_id = cur.fetchone()[0]
+        conn.commit()
 
-            return jsonify({
-                'message': 'Time slot created successfully',
-                'slot_id': slot_id
-            }), 201
-
-        except Exception as e:
-            conn.rollback()
-            print(f"Create slot error: {e}")
-            return jsonify({'error': 'Failed to create time slot', 'details': str(e)}), 500
+        return jsonify({
+            'message': 'Time slot created successfully',
+            'slot_id': slot_id
+        }), 201
 
     except Exception as e:
+        if conn is not None:
+            conn.rollback()
         print(f"Create slot error: {e}")
-        return jsonify({'error': 'Failed to process time slot', 'details': str(e)}), 500
-
+        return jsonify({'error': 'Failed to create time slot', 'details': str(e)}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/slots/my', methods=['GET'])
@@ -452,6 +445,8 @@ def get_my_slots():
     if not g.user or g.user['role'] != 'teacher':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -474,9 +469,9 @@ def get_my_slots():
         print(f"Get my slots error: {e}")
         return jsonify({'error': 'Failed to load slots'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/slots/available', methods=['GET'])
@@ -485,6 +480,8 @@ def get_available_slots():
     if not g.user or g.user['role'] != 'student':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -508,9 +505,9 @@ def get_available_slots():
         print(f"Get available slots error: {e}")
         return jsonify({'error': 'Failed to load available slots'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/slots/<int:slot_id>/cancel', methods=['POST'])
@@ -519,6 +516,8 @@ def cancel_slot(slot_id):
     if not g.user or g.user['role'] != 'teacher':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -549,12 +548,14 @@ def cancel_slot(slot_id):
         return jsonify({'message': 'Time slot cancelled successfully'})
 
     except Exception as e:
+        if conn is not None:
+            conn.rollback()
         print(f"Cancel slot error: {e}")
         return jsonify({'error': 'Failed to cancel slot'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/appointments/my', methods=['GET'])
@@ -563,6 +564,8 @@ def get_my_appointments():
     if not g.user or g.user['role'] != 'student':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -587,9 +590,9 @@ def get_my_appointments():
         print(f"Get appointments error: {e}")
         return jsonify({'error': 'Failed to load appointments'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/appointments/<int:slot_id>/book', methods=['POST'])
@@ -598,6 +601,8 @@ def book_appointment(slot_id):
     if not g.user or g.user['role'] != 'student':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -638,12 +643,14 @@ def book_appointment(slot_id):
         return jsonify({'message': 'Appointment booked successfully'})
 
     except Exception as e:
+        if conn is not None:
+            conn.rollback()
         print(f"Book appointment error: {e}")
         return jsonify({'error': 'Failed to book appointment'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
 
 @app.route('/api/appointments/<int:appointment_id>/cancel', methods=['POST'])
@@ -652,6 +659,8 @@ def cancel_appointment(appointment_id):
     if not g.user or g.user['role'] != 'student':
         return jsonify({'error': 'Unauthorized'}), 403
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -683,20 +692,23 @@ def cancel_appointment(appointment_id):
         return jsonify({'message': 'Appointment cancelled successfully'})
 
     except Exception as e:
+        if conn is not None:
+            conn.rollback()
         print(f"Cancel appointment error: {e}")
         return jsonify({'error': 'Failed to cancel appointment'}), 500
     finally:
-        if 'cur' in locals():
+        if cur is not None:
             cur.close()
-        if 'conn' in locals():
+        if conn is not None:
             conn.close()
+
 @app.route('/debug/status')
 def debug_status():
     try:
         # Test database connection
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
+        
         # Check if users table exists
         cur.execute("""
             SELECT EXISTS (
@@ -706,13 +718,13 @@ def debug_status():
             );
         """)
         tables_exist = cur.fetchone()[0]
-
+        
         # Get users if table exists
         users = []
         if tables_exist:
             cur.execute('SELECT id, email, role, created_at FROM users ORDER BY created_at DESC')
             users = [dict(user) for user in cur.fetchall()]
-
+        
         return jsonify({
             'database_connected': True,
             'tables_exist': tables_exist,
@@ -725,7 +737,7 @@ def debug_status():
                 'db_port': os.environ.get('DB_PORT')
             }
         })
-
+        
     except Exception as e:
         return jsonify({
             'database_connected': False,
@@ -737,7 +749,7 @@ def debug_status():
                 'db_port': os.environ.get('DB_PORT')
             }
         }), 500
-
+        
     finally:
         if 'cur' in locals():
             cur.close()
@@ -745,15 +757,16 @@ def debug_status():
             conn.close()
 
 # Initialize database when starting the app in production
-if os.environ.get('FLASK_ENV') == 'production' or True:  # Always initialize for now
+if __name__ == '__main__':
+    # Initialize database
     with app.app_context():
         try:
-            init_db()  # Use init_db directly to ensure tables are created
+            init_db()
             print("Database initialization completed")
         except Exception as e:
             print(f"Failed to initialize database: {e}")
             print(traceback.format_exc())
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5002))
-    app.run(host='0.0.0.0', port=port)
+    
+    # Start the server
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=True)
