@@ -1,17 +1,34 @@
 # Standard library imports
 import os
+import sys
 import traceback
 from datetime import datetime, timedelta
-from functools import wraps
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+VENV_ROOT = PROJECT_ROOT / '.venv'
+VENV_PYTHON = PROJECT_ROOT / '.venv' / 'bin' / 'python'
+
+if VENV_PYTHON.exists() and Path(sys.prefix).resolve() != VENV_ROOT.resolve():
+    os.environ.setdefault('PYTHONPYCACHEPREFIX', str(PROJECT_ROOT / '.pycache'))
+    os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv])
+
+if not VENV_PYTHON.exists() and Path(sys.prefix).resolve() == Path(sys.base_prefix).resolve():
+    print("Project dependencies are not installed in this Python environment.")
+    print("Run these commands once:")
+    print("  python3 -m venv .venv")
+    print("  .venv/bin/python -m pip install -r requirements.txt")
+    print("Then start the app again with:")
+    print("  python3 app.py")
+    sys.exit(1)
 
 # Third-party imports
 from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
-from flask import (
-    Flask, g, jsonify, redirect, render_template, request,
-    send_from_directory, session, url_for
-)
+from flask import Flask, g, jsonify, request, send_from_directory, session
+from flask_cors import CORS
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Load environment variables
@@ -19,6 +36,8 @@ load_dotenv()
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
+auth_serializer = URLSafeTimedSerializer(app.secret_key)
+PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
 
 # Configure session settings
 app.config.update(
@@ -29,19 +48,59 @@ app.config.update(
     SESSION_REFRESH_EACH_REQUEST=True
 )
 
-# Enable CORS for all routes if needed
-from flask_cors import CORS
-CORS(app, supports_credentials=True)
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        'CORS_ORIGINS',
+        'http://127.0.0.1:5002,http://localhost:5002,null'
+    ).split(',')
+    if origin.strip()
+]
+CORS(app, supports_credentials=True, origins=cors_origins)
+
+def create_auth_token(user):
+    return auth_serializer.dumps({
+        'id': user['id'],
+        'email': user['email'],
+        'role': user['role']
+    })
+
+def get_user_from_auth_token():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+
+    token = auth_header.split(' ', 1)[1].strip()
+    if not token:
+        return None
+
+    try:
+        return auth_serializer.loads(
+            token,
+            max_age=int(app.config['PERMANENT_SESSION_LIFETIME'].total_seconds())
+        )
+    except (BadSignature, SignatureExpired):
+        return None
 
 def get_db_connection():
-    # Try Render's internal database URL first
-    internal_db_url = os.environ.get('INTERNAL_DATABASE_URL')
-    if internal_db_url:
-        print("Trying to connect to Render's database...")
+    database_url = (
+        os.environ.get('DATABASE_URL')
+        or os.environ.get('RENDER_POSTGRES_URL')
+        or os.environ.get('INTERNAL_DATABASE_URL')
+        or os.environ.get('EXTERNAL_DATABASE_URL')
+    )
+
+    if database_url:
+        print("Trying to connect using configured Postgres URL...")
         try:
-            return psycopg2.connect(internal_db_url)
+            connect_kwargs = {}
+            if 'sslmode=' not in database_url and 'localhost' not in database_url and '127.0.0.1' not in database_url:
+                connect_kwargs['sslmode'] = os.environ.get('DB_SSLMODE', 'require')
+            return psycopg2.connect(database_url, **connect_kwargs)
         except Exception as e:
-            print(f"Render database connection failed: {e}")
+            print(f"Postgres URL connection failed: {e}")
+            raise
+
     # Fall back to standard PostgreSQL connection parameters
     db_host = os.environ.get('DB_HOST', 'localhost')
     db_name = os.environ.get('DB_NAME', 'geu_academic_connect')
@@ -106,7 +165,7 @@ def init_db():
         # Create a default admin user if not exists
         admin_email = 'admin@geu.ac.in'
         admin_password = 'admin123'  # In production, use a strong password and environment variables
-        admin_password_hash = generate_password_hash(admin_password)
+        admin_password_hash = generate_password_hash(admin_password, method=PASSWORD_HASH_METHOD)
 
         print(f"Ensuring admin user exists: {admin_email}")
         cur.execute("""
@@ -161,7 +220,7 @@ def inject_user():
             'role': session.get('role')
         }
     else:
-        g.user = None
+        g.user = get_user_from_auth_token()
 
 # Serve React App
 @app.route('/')
@@ -203,6 +262,8 @@ def register():
     if not all([email, password, role]):
         return jsonify({'error': 'Missing required fields'}), 400
 
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -213,7 +274,7 @@ def register():
             return jsonify({'error': 'Email already registered'}), 400
 
         # Hash password and create user
-        password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(password, method=PASSWORD_HASH_METHOD)
         cur.execute(
             'INSERT INTO users (email, password_hash, role) VALUES (%s, %s, %s) RETURNING id',
             (email, password_hash, role)
@@ -226,22 +287,28 @@ def register():
         session['email'] = email
         session['role'] = role
 
+        user = {
+            'id': user_id,
+            'email': email,
+            'role': role
+        }
+
         return jsonify({
+            'success': True,
             'message': 'Registration successful',
-            'user': {
-                'id': user_id,
-                'email': email,
-                'role': role
-            }
+            'user': user,
+            'token': create_auth_token(user)
         }), 201
 
     except Exception as e:
-        conn.rollback()
+        if conn is not None:
+            conn.rollback()
         return jsonify({'error': str(e)}), 500
 
     finally:
-        if 'conn' in locals():
+        if cur is not None:
             cur.close()
+        if conn is not None:
             conn.close()
 
 @app.route('/api/login', methods=['POST'])
@@ -313,18 +380,14 @@ def login():
                 'id': user['id'],
                 'email': user['email'],
                 'role': user['role']
-            }
+            },
+            'token': create_auth_token(user)
         }
 
         print(f"Session data set: {dict(session)}")
         print(f"Sending response: {response_data}")
 
-        # Create response with CORS headers
-        response = jsonify(response_data)
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-
-    return response
+        return jsonify(response_data)
 
     except Exception as e:
         print(f"\n!!! Login Error !!!")
@@ -347,38 +410,27 @@ def login():
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
+    session.clear()
+    session.modified = True
+    session.permanent = False
+
+    response = jsonify({
+        'success': True,
+        'message': 'Logout successful'
+    })
+
     try:
-        # Clear the session completely
-        session.clear()
-
-        # Force session invalidation
-        session.modified = True
-        session.permanent = False
-
-        # Also pop the session to ensure it's cleared
-        session.pop('user_id', None)
-        session.pop('email', None)
-        session.pop('role', None)
-
-        # Create a response
-        response = jsonify({
-            'success': True,
-            'message': 'Logout successful'
-        })
-
-        # Try to clear the session cookie
-        try:
-            response.set_cookie(
-                'session',
-                '',
-                expires=0,
-                max_age=0,
-                path='/',
-                httponly=True,
-                samesite='Lax'
-            )
-        except Exception as e:
-            print(f"Warning: Could not clear session cookie: {e}")
+        response.set_cookie(
+            'session',
+            '',
+            expires=0,
+            max_age=0,
+            path='/',
+            httponly=True,
+            samesite='Lax'
+        )
+    except Exception as e:
+        print(f"Warning: Could not clear session cookie: {e}")
 
     return response
 
@@ -719,6 +771,12 @@ def debug_status():
             'user_count': len(users),
             'users': users,
             'environment': {
+                'database_url_configured': bool(
+                    os.environ.get('DATABASE_URL')
+                    or os.environ.get('RENDER_POSTGRES_URL')
+                    or os.environ.get('INTERNAL_DATABASE_URL')
+                    or os.environ.get('EXTERNAL_DATABASE_URL')
+                ),
                 'db_host': os.environ.get('DB_HOST'),
                 'db_name': os.environ.get('DB_NAME'),
                 'db_user': os.environ.get('DB_USER'),
@@ -731,6 +789,12 @@ def debug_status():
             'database_connected': False,
             'error': str(e),
             'environment': {
+                'database_url_configured': bool(
+                    os.environ.get('DATABASE_URL')
+                    or os.environ.get('RENDER_POSTGRES_URL')
+                    or os.environ.get('INTERNAL_DATABASE_URL')
+                    or os.environ.get('EXTERNAL_DATABASE_URL')
+                ),
                 'db_host': os.environ.get('DB_HOST'),
                 'db_name': os.environ.get('DB_NAME'),
                 'db_user': os.environ.get('DB_USER'),
@@ -756,4 +820,5 @@ if os.environ.get('FLASK_ENV') == 'production' or True:  # Always initialize for
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5002))
-    app.run(host='0.0.0.0', port=port)
+    host = os.environ.get('HOST', '127.0.0.1')
+    app.run(host=host, port=port)

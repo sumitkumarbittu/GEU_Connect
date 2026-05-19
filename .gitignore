@@ -25,7 +25,9 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
 ENV/
+.pycache/
 
 # IDE
 .idea/

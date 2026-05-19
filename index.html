@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link href="/static/styles.css" rel="stylesheet">
+    <link href="./static/styles.css" rel="stylesheet">
     
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -235,6 +235,36 @@
     </div>
 
     <script>
+        const API_BASE = (() => {
+            const configuredBase = window.GEU_API_BASE || localStorage.getItem('GEU_API_BASE');
+            if (configuredBase) {
+                return configuredBase.replace(/\/$/, '');
+            }
+
+            if (window.location.protocol === 'file:') {
+                return 'http://127.0.0.1:5002';
+            }
+
+            return '';
+        })();
+
+        function apiUrl(path) {
+            return `${API_BASE}${path}`;
+        }
+
+        function apiFetch(path, options = {}) {
+            const token = sessionStorage.getItem('authToken');
+            return fetch(apiUrl(path), {
+                credentials: 'include',
+                ...options,
+                headers: {
+                    Accept: 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    ...(options.headers || {})
+                }
+            });
+        }
+
         // Simple client-side routing
         function showPage(pageId) {
             // Hide all pages
@@ -349,12 +379,11 @@
             const messageDiv = document.getElementById('login-message');
             
             try {
-                const response = await fetch('/api/login', {
+                const response = await apiFetch('/api/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    credentials: 'same-origin',
                     body: JSON.stringify({ email, password })
                 });
                 
@@ -363,6 +392,9 @@
                 if (response.ok) {
                     currentUser = data.user;
                     sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    if (data.token) {
+                        sessionStorage.setItem('authToken', data.token);
+                    }
                     showAlert('Login successful!', 'success');
                     showPage('home');
                     updateNavigation();
@@ -384,22 +416,25 @@
             const messageDiv = document.getElementById('register-message');
             
             try {
-                const response = await fetch('/api/register', {
+                const response = await apiFetch('/api/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    credentials: 'same-origin',
                     body: JSON.stringify({ email, password, role })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showAlert('Registration successful! Please login.', 'success');
-                    showPage('login');
-                    // Pre-fill the login form
-                    document.getElementById('login-email').value = email;
+                    currentUser = data.user;
+                    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    if (data.token) {
+                        sessionStorage.setItem('authToken', data.token);
+                    }
+                    showAlert('Registration successful!', 'success');
+                    showPage('home');
+                    updateNavigation();
                 } else {
                     showAlert(data.message || 'Registration failed', 'error');
                 }
@@ -438,19 +473,16 @@
 
         // Logout function
         function logout() {
-            fetch('/api/logout', {
-                method: 'POST',
-                credentials: 'same-origin'
+            apiFetch('/api/logout', {
+                method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     // Clear session storage
                     sessionStorage.removeItem('currentUser');
+                    sessionStorage.removeItem('authToken');
                     currentUser = null;
-
-                    // Clear any cached data
-                    localStorage.clear();
 
                     // Force page reload to ensure fresh session
                     window.location.reload();
@@ -464,6 +496,7 @@
                 console.error('Logout error:', error);
                 // Force logout even if server request fails
                 sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('authToken');
                 currentUser = null;
                 window.location.reload();
                 showAlert('You have been logged out.', 'info');
@@ -493,12 +526,11 @@
             }
 
             try {
-                const response = await fetch('/api/slots', {
+                const response = await apiFetch('/api/slots', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    credentials: 'same-origin',
                     body: JSON.stringify({
                         start_time: startDateTime.toISOString(),
                         end_time: endDateTime.toISOString()
@@ -528,9 +560,8 @@
             if (!container) return;
 
             try {
-                const response = await fetch('/api/slots/my', {
-                    method: 'GET',
-                    credentials: 'same-origin'
+                const response = await apiFetch('/api/slots/my', {
+                    method: 'GET'
                 });
 
                 const data = await response.json();
@@ -582,9 +613,8 @@
             if (!container) return;
 
             try {
-                const response = await fetch('/api/slots/available', {
-                    method: 'GET',
-                    credentials: 'same-origin'
+                const response = await apiFetch('/api/slots/available', {
+                    method: 'GET'
                 });
 
                 const data = await response.json();
@@ -606,7 +636,7 @@
                                         </div>
                                         <div class="teacher-info">
                                             <i class="fas fa-chalkboard-teacher"></i>
-                                            ${slot.teacher_name || 'Teacher'}
+                                            ${slot.teacher_email || 'Teacher'}
                                         </div>
                                         <button onclick="bookSlot(${slot.id})" class="btn btn-primary btn-sm">
                                             <i class="fas fa-book"></i> Book Slot
@@ -633,9 +663,8 @@
             if (!container) return;
 
             try {
-                const response = await fetch('/api/appointments/my', {
-                    method: 'GET',
-                    credentials: 'same-origin'
+                const response = await apiFetch('/api/appointments/my', {
+                    method: 'GET'
                 });
 
                 const data = await response.json();
@@ -647,17 +676,17 @@
                                 ${data.appointments.map(appointment => `
                                     <div class="booking-card ${appointment.status}">
                                         <div class="booking-header">
-                                            <h4>${new Date(appointment.slot.start_time).toLocaleDateString()}</h4>
+                                            <h4>${new Date(appointment.start_time).toLocaleDateString()}</h4>
                                             <span class="status-badge ${appointment.status}">${appointment.status}</span>
                                         </div>
                                         <div class="booking-time">
                                             <i class="fas fa-clock"></i>
-                                            ${new Date(appointment.slot.start_time).toLocaleTimeString()} -
-                                            ${new Date(appointment.slot.end_time).toLocaleTimeString()}
+                                            ${new Date(appointment.start_time).toLocaleTimeString()} -
+                                            ${new Date(appointment.end_time).toLocaleTimeString()}
                                         </div>
                                         <div class="teacher-info">
                                             <i class="fas fa-chalkboard-teacher"></i>
-                                            ${appointment.slot.teacher_name || 'Teacher'}
+                                            ${appointment.teacher_email || 'Teacher'}
                                         </div>
                                         ${appointment.status === 'scheduled' ? `
                                             <button onclick="cancelBooking(${appointment.id})" class="btn btn-danger btn-sm">
@@ -683,12 +712,11 @@
         // Book a slot (Students)
         async function bookSlot(slotId) {
             try {
-                const response = await fetch(`/api/appointments/${slotId}/book`, {
+                const response = await apiFetch(`/api/appointments/${slotId}/book`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin'
+                    }
                 });
 
                 const data = await response.json();
@@ -713,12 +741,11 @@
             }
 
             try {
-                const response = await fetch(`/api/appointments/${appointmentId}/cancel`, {
+                const response = await apiFetch(`/api/appointments/${appointmentId}/cancel`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin'
+                    }
                 });
 
                 const data = await response.json();
@@ -743,12 +770,11 @@
             }
 
             try {
-                const response = await fetch(`/api/slots/${slotId}/cancel`, {
+                const response = await apiFetch(`/api/slots/${slotId}/cancel`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin'
+                    }
                 });
 
                 const data = await response.json();

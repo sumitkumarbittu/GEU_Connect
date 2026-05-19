@@ -77,13 +77,17 @@ A comprehensive web application designed to streamline the appointment schedulin
    FLASK_APP=app.py
    FLASK_DEBUG=1
    SECRET_KEY=your-secret-key-here
+   HOST=127.0.0.1
+   PORT=5002
    
-   # Database
-   DB_HOST=localhost
-   DB_NAME=geu_academic_connect
-   DB_USER=postgres
-   DB_PASSWORD=your_secure_password
-   DB_PORT=5432
+   # Render PostgreSQL
+   # Use the Internal Database URL from Render in production.
+   # For local testing you can also paste the External Database URL here.
+   DATABASE_URL=postgresql://user:password@host:5432/database
+   DB_SSLMODE=require
+
+   # Allow index.html opened directly from disk to call the Flask API.
+   CORS_ORIGINS=http://127.0.0.1:5002,http://localhost:5002,null
    
    # Email (for notifications)
    MAIL_SERVER=smtp.gmail.com
@@ -93,18 +97,19 @@ A comprehensive web application designed to streamline the appointment schedulin
    MAIL_PASSWORD=your-email-password
    ```
 
-5. **Initialize the database**
+5. **Run the development server**
    ```bash
-   flask db init
-   flask db migrate
-   flask db upgrade
+   python app.py
    ```
+   Visit `http://127.0.0.1:5002` in your browser.
 
-6. **Run the development server**
-   ```bash
-   flask run
+6. **Open `index.html` directly**
+   You can also open `index.html` directly from the project folder. When opened from disk, it automatically sends API requests to `http://127.0.0.1:5002`, so keep `python app.py` running in another terminal.
+
+   To point the directly opened file at a deployed Render backend instead, run this once in the browser console:
+   ```js
+   localStorage.setItem('GEU_API_BASE', 'https://your-render-service.onrender.com')
    ```
-   Visit `http://localhost:5000` in your browser.
 
 ## 🚀 Deployment
 
@@ -115,7 +120,10 @@ A comprehensive web application designed to streamline the appointment schedulin
 3. Configure build settings:
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app`
-4. Add environment variables from your `.env` file
+4. Add environment variables:
+   - `SECRET_KEY`
+   - `DATABASE_URL` with your Render PostgreSQL Internal Database URL
+   - `CORS_ORIGINS` with any origins that should call the API, for example `https://your-render-service.onrender.com,null`
 5. Deploy!
 
 ### Heroku
