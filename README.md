@@ -61,8 +61,8 @@ A comprehensive web application designed to streamline the appointment schedulin
 
 2. **Set up a virtual environment**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
 
 3. **Install dependencies**
@@ -115,16 +115,60 @@ A comprehensive web application designed to streamline the appointment schedulin
 
 ### Render (Recommended)
 
-1. Create a new Web Service on Render
-2. Connect your GitHub repository
-3. Configure build settings:
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app`
-4. Add environment variables:
-   - `SECRET_KEY`
-   - `DATABASE_URL` with your Render PostgreSQL Internal Database URL
-   - `CORS_ORIGINS` with any origins that should call the API, for example `https://your-render-service.onrender.com,null`
-5. Deploy!
+This repo is ready for a split Render deployment:
+
+- `geu-connect-api`: Docker Web Service running Flask/Gunicorn from `app.py`
+- `geu-connect-static`: Static Site serving `index.html` and `static/`
+- `geu-connect-db`: Render PostgreSQL database
+
+Use the included `render.yaml` blueprint:
+
+1. Push this repository to GitHub.
+2. In Render, choose **New > Blueprint**.
+3. Select the repository and apply `render.yaml`.
+4. After Render creates both services, copy the API service URL, for example `https://geu-connect-api.onrender.com`.
+5. Set `API_BASE_URL` on the static site to that API URL.
+6. Set `CORS_ORIGINS` on the API service to your static site URL, plus any local origins you need, for example:
+   ```text
+   https://geu-connect-static.onrender.com,http://127.0.0.1:5002,http://localhost:5002,null
+   ```
+7. Redeploy both services.
+
+The API service receives `DATABASE_URL` automatically from the Render database in `render.yaml`.
+
+### Docker
+
+Build and run locally:
+
+```bash
+docker build -t geu-connect-api .
+docker run --rm -p 5002:5002 --env-file .env geu-connect-api
+```
+
+Build a multi-platform image with Docker Buildx:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t your-dockerhub-username/geu-connect-api:latest \
+  --push .
+```
+
+Render can build directly from the included `Dockerfile`, so pushing to Docker Hub is optional.
+
+### Static Site Build
+
+Render runs:
+
+```bash
+./scripts/build-static.sh
+```
+
+That creates `public/index.html` and `public/static/*`, including `public/static/config.js` with:
+
+```js
+window.GEU_API_BASE = "https://your-api-service.onrender.com";
+```
 
 ### Heroku
 

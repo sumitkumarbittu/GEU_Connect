@@ -9,21 +9,27 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 VENV_ROOT = PROJECT_ROOT / '.venv'
 VENV_PYTHON = PROJECT_ROOT / '.venv' / 'bin' / 'python'
 
-if VENV_PYTHON.exists() and Path(sys.prefix).resolve() != VENV_ROOT.resolve():
+if (
+    not os.environ.get('SKIP_VENV_BOOTSTRAP')
+    and VENV_PYTHON.exists()
+    and Path(sys.prefix).resolve() != VENV_ROOT.resolve()
+):
     os.environ.setdefault('PYTHONPYCACHEPREFIX', str(PROJECT_ROOT / '.pycache'))
     os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv])
 
-if not VENV_PYTHON.exists() and Path(sys.prefix).resolve() == Path(sys.base_prefix).resolve():
-    print("Project dependencies are not installed in this Python environment.")
-    print("Run these commands once:")
+# Third-party imports
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError as exc:
+    if exc.name != 'dotenv':
+        raise
+    print("Missing project dependency: python-dotenv")
+    print("Run:")
     print("  python3 -m venv .venv")
     print("  .venv/bin/python -m pip install -r requirements.txt")
-    print("Then start the app again with:")
     print("  python3 app.py")
     sys.exit(1)
 
-# Third-party imports
-from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
 from flask import Flask, g, jsonify, request, send_from_directory, session
@@ -38,10 +44,11 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
 auth_serializer = URLSafeTimedSerializer(app.secret_key)
 PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
+is_production = os.environ.get('FLASK_ENV') == 'production' or bool(os.environ.get('RENDER'))
 
 # Configure session settings
 app.config.update(
-    SESSION_COOKIE_SECURE=False,  # Set to True in production with HTTPS
+    SESSION_COOKIE_SECURE=is_production,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
     PERMANENT_SESSION_LIFETIME=timedelta(hours=1),  # Shorter session lifetime
@@ -226,6 +233,10 @@ def inject_user():
 @app.route('/')
 def serve():
     return send_from_directory('.', 'index.html')
+
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'ok'})
 
 # API Routes
 @app.route('/api/session', methods=['GET'])

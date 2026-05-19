@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.pycache
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+.DS_Store
+cookies.txt
+app.py.backup
+*.log
+public
